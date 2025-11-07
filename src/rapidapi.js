@@ -10,14 +10,14 @@ export async function getReelDataViaRapidAPI(url, apiKey) {
     try {
         console.log('🚀 Fetching data from RapidAPI Instagram Downloader...');
         
-        // RapidAPI Instagram Downloader endpoint
+        // RapidAPI Instagram Reels Downloader endpoint
         const options = {
             method: 'GET',
-            url: 'https://instagram-downloader-download-instagram-videos-stories.p.rapidapi.com/index',
+            url: 'https://instagram-reels-downloader-api.p.rapidapi.com/download',
             params: { url: url },
             headers: {
-                'X-RapidAPI-Key': apiKey,
-                'X-RapidAPI-Host': 'instagram-downloader-download-instagram-videos-stories.p.rapidapi.com'
+                'x-rapidapi-key': apiKey,
+                'x-rapidapi-host': 'instagram-reels-downloader-api.p.rapidapi.com'
             },
             timeout: 30000
         };
@@ -30,23 +30,26 @@ export async function getReelDataViaRapidAPI(url, apiKey) {
 
         console.log('✅ Successfully fetched data from RapidAPI');
         
-        // Parse RapidAPI response
-        const data = response.data;
+        // Parse RapidAPI response (data is nested in response.data.data)
+        const apiData = response.data.data;
         
-        // Extract data from response (structure varies by API)
+        if (!apiData) {
+            throw new Error('No data found in API response');
+        }
+        
+        // Extract data from the actual response structure
         const reelData = {
-            videoUrl: data.video_url || data.media?.[0]?.url || data.url || '',
-            caption: data.caption || data.title || '',
-            viewCount: parseInt(data.video_view_count || data.views || 0),
-            likeCount: parseInt(data.like_count || data.likes || 0),
-            commentCount: parseInt(data.comment_count || data.comments || 0),
+            videoUrl: apiData.medias?.[0]?.url || '',
+            caption: apiData.title || '',
+            viewCount: parseInt(apiData.view_count || 0),
+            likeCount: parseInt(apiData.like_count || 0),
+            commentCount: 0, // This API doesn't provide comments
             author: {
-                username: data.username || data.owner?.username || '',
-                fullName: data.owner?.full_name || data.owner_full_name || ''
+                username: apiData.owner?.username || apiData.author || '',
+                fullName: apiData.owner?.full_name || apiData.author || ''
             },
-            timestamp: data.taken_at_timestamp 
-                ? new Date(data.taken_at_timestamp * 1000).toISOString()
-                : new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            duration: apiData.duration || 0
         };
 
         // Extract hashtags from caption
@@ -60,7 +63,8 @@ export async function getReelDataViaRapidAPI(url, apiKey) {
         console.log('📊 RapidAPI Data extracted:');
         console.log(`   Video URL: ${reelData.videoUrl ? '✅' : '❌'}`);
         console.log(`   Caption: ${reelData.caption ? '✅' : '❌'}`);
-        console.log(`   Views: ${reelData.viewCount || 'N/A'}`);
+        console.log(`   Views: ${reelData.viewCount || 0}`);
+        console.log(`   Likes: ${reelData.likeCount || 0}`);
         console.log(`   Author: ${reelData.author.username || 'N/A'}`);
 
         return reelData;

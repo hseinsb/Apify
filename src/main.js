@@ -143,19 +143,19 @@ try {
                 continue;
             }
 
-            // Prepare output object
-            const output = {
-                url,
-                caption: reelData.caption || '',
-                hashtags: reelData.hashtags || [],
-                viewCount: reelData.viewCount || 0,
-                likeCount: reelData.likeCount || 0,
-                commentCount: reelData.commentCount || 0,
-                videoUrl: reelData.videoUrl || '',
-                author: reelData.author || {},
-                timestamp: reelData.timestamp || new Date().toISOString(),
-                success: true
-            };
+                // Prepare output object
+                const output = {
+                    url,
+                    caption: reelData.caption || '',
+                    hashtags: reelData.hashtags || [],
+                    viewCount: parseInt(reelData.viewCount) || 0,
+                    likeCount: parseInt(reelData.likeCount) || 0,
+                    commentCount: parseInt(reelData.commentCount) || 0,
+                    videoUrl: reelData.videoUrl || '',
+                    author: reelData.author || {},
+                    timestamp: reelData.timestamp || new Date().toISOString(),
+                    success: true
+                };
 
             // Handle transcription if requested
             if (input.includeTranscript !== false && reelData.videoUrl) {
