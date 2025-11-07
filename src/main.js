@@ -2,6 +2,7 @@ import { Actor } from 'apify';
 import { scrapeInstagramReel } from './scraper.js';
 import { transcribeAudio } from './transcription.js';
 import { downloadVideo, extractAudioFromVideo, validateUrl } from './utils.js';
+import { getReelDataViaAPI } from './instagram-api.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -52,11 +53,16 @@ try {
         }
     }
     
-    // Set proxy configuration
+    // Set proxy configuration (disabled for local testing, enabled on Apify)
     const proxyConfig = {
-        useApifyProxy: true,
+        useApifyProxy: !!process.env.APIFY_TOKEN, // Only use proxy if APIFY_TOKEN exists
         apifyProxyGroups: ['RESIDENTIAL']
     };
+    
+    if (!process.env.APIFY_TOKEN) {
+        console.log('⚠️ Running in LOCAL MODE (no APIFY_TOKEN) - Proxy disabled');
+        console.log('Note: Instagram may show limited data without proxy');
+    }
 
     console.log(`Starting Instagram Content Intelligence Pro actor`);
     console.log(`Processing ${input.reelUrls.length} reel(s)`);
@@ -80,7 +86,13 @@ try {
 
             // Scrape reel metadata
             console.log('Extracting reel metadata...');
-            const reelData = await scrapeInstagramReel(url, proxyConfig);
+            let reelData = await scrapeInstagramReel(url, proxyConfig);
+            
+            // Fallback: If scraping failed and we're running locally, try API method
+            if (!reelData || (!reelData.caption && !reelData.videoUrl && !process.env.APIFY_TOKEN)) {
+                console.log('⚠️ Browser scraping failed, trying Instagram API fallback...');
+                reelData = await getReelDataViaAPI(url);
+            }
 
             if (!reelData) {
                 console.log(`⚠️ Failed to extract data from: ${url}`);
@@ -140,7 +152,11 @@ try {
 
             // Save to dataset
             await Actor.pushData(output);
-            console.log(`✓ Successfully processed reel ${i + 1}/${input.reelUrls.length}`);
+            
+            // Show extracted data
+            console.log('\n🎉 FINAL OUTPUT:');
+            console.log(JSON.stringify(output, null, 2));
+            console.log(`\n✓ Successfully processed reel ${i + 1}/${input.reelUrls.length}`);
 
         } catch (error) {
             console.log(`❌ Error processing reel ${url}: ${error.message}`);

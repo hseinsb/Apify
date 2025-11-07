@@ -13,8 +13,11 @@ export async function scrapeInstagramReel(url, proxyConfig) {
     
     try {
         // Configure browser options
+        // Set headless based on environment (false for local testing, true for production)
+        const isLocal = !process.env.APIFY_TOKEN;
         const launchOptions = {
-            headless: true,
+            headless: !isLocal,  // Show browser locally, hide in production
+            slowMo: isLocal ? 500 : 0,  // Slow down locally for debugging
         };
 
         // Configure proxy if provided
@@ -26,22 +29,32 @@ export async function scrapeInstagramReel(url, proxyConfig) {
 
         // Handle Apify proxy configuration
         if (proxyConfig?.useApifyProxy) {
-            const proxyConfiguration = await Actor.createProxyConfiguration({
-                groups: proxyConfig.apifyProxyGroups || ['RESIDENTIAL'],
-            });
-            const proxyUrl = await proxyConfiguration.newUrl();
-            contextOptions.proxy = {
-                server: proxyUrl,
-            };
-            console.log('✓ Using Apify proxy');
+            try {
+                const proxyConfiguration = await Actor.createProxyConfiguration({
+                    groups: proxyConfig.apifyProxyGroups || ['RESIDENTIAL'],
+                });
+                if (proxyConfiguration) {
+                    const proxyUrl = await proxyConfiguration.newUrl();
+                    contextOptions.proxy = {
+                        server: proxyUrl,
+                    };
+                    console.log('✓ Using Apify proxy');
+                }
+            } catch (proxyError) {
+                console.log('⚠️ Proxy not available (running locally), continuing without proxy...');
+                console.log('Note: Instagram may block requests without proxy');
+            }
         } else if (proxyConfig?.proxyUrls && proxyConfig.proxyUrls.length > 0) {
             contextOptions.proxy = {
                 server: proxyConfig.proxyUrls[0],
             };
             console.log('✓ Using custom proxy');
+        } else {
+            console.log('ℹ️  Running without proxy (local testing mode)');
         }
 
-        console.log('Launching browser...');
+        console.log('🚀 Launching browser in VISIBLE mode...');
+        console.log('👀 Watch the browser window to see what Instagram shows');
         browser = await chromium.launch(launchOptions);
         context = await browser.newContext(contextOptions);
         
@@ -53,7 +66,8 @@ export async function scrapeInstagramReel(url, proxyConfig) {
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         });
 
-        console.log(`Navigating to: ${url}`);
+        console.log(`\n🌐 Navigating to: ${url}`);
+        console.log('👀 WATCH THE BROWSER WINDOW - You\'ll see exactly what happens!\n');
         
         // Navigate to the reel URL
         await page.goto(url, { 
@@ -61,15 +75,29 @@ export async function scrapeInstagramReel(url, proxyConfig) {
             timeout: 60000 
         });
 
-        // Wait for content to load
-        await page.waitForTimeout(5000);
+        console.log('⏳ Waiting 10 seconds for page to fully load...');
+        console.log('👀 Watch what Instagram shows in the browser');
         
-        // Take screenshot for debugging
-        console.log('Page loaded, attempting extraction...');
+        // Wait for content to load (longer so you can see)
+        await page.waitForTimeout(10000);
         
-        // Get page content for debugging
-        const content = await page.content();
-        console.log('Page title:', await page.title());
+        console.log('🔍 Page loaded, attempting extraction...');
+        console.log('📄 Page title:', await page.title());
+        console.log('🌐 Current URL:', page.url());
+        
+        // Check if we hit a login wall
+        const pageContent = await page.content();
+        if (pageContent.includes('loginForm') || pageContent.includes('Log in to Instagram')) {
+            console.log('⚠️ LOGIN WALL DETECTED - Instagram is blocking access');
+        }
+        
+        // Save screenshot for debugging
+        try {
+            await page.screenshot({ path: 'debug-screenshot.png' });
+            console.log('📸 Screenshot saved to debug-screenshot.png');
+        } catch (e) {
+            console.log('Could not save screenshot');
+        }
 
         // Try to extract data from the page
         const reelData = await page.evaluate(() => {
@@ -86,23 +114,32 @@ export async function scrapeInstagramReel(url, proxyConfig) {
 
             // Extract video URL from video element or source elements
             const videoElement = document.querySelector('video');
+            console.log('🎥 Video element found:', !!videoElement);
             if (videoElement) {
                 if (videoElement.src) {
                     data.videoUrl = videoElement.src;
+                    console.log('✅ Video URL from src:', data.videoUrl.substring(0, 50));
                 } else {
                     // Try source elements
                     const sourceElement = videoElement.querySelector('source');
                     if (sourceElement && sourceElement.src) {
                         data.videoUrl = sourceElement.src;
+                        console.log('✅ Video URL from source:', data.videoUrl.substring(0, 50));
+                    } else {
+                        console.log('❌ No video src found');
                     }
                 }
+            } else {
+                console.log('❌ No video element found on page');
             }
 
             // Try multiple methods to get caption
             // Method 1: Meta tags
             const captionMeta = document.querySelector('meta[property="og:description"]');
+            console.log('📝 Caption meta tag found:', !!captionMeta);
             if (captionMeta && captionMeta.content) {
                 data.caption = captionMeta.content;
+                console.log('✅ Caption from meta:', data.caption.substring(0, 50));
             }
             
             // Method 2: Try structured data
@@ -139,9 +176,41 @@ export async function scrapeInstagramReel(url, proxyConfig) {
 
             // Extract hashtags from caption
             if (data.caption) {
-                const hashtagMatches = data.caption.match(/#\w+/g);
+                const hashtagMatches = data.caption.match(/#[\w]+/g);
                 if (hashtagMatches) {
                     data.hashtags = hashtagMatches;
+                }
+            }
+            
+            // Try to extract likes and comments from caption if it contains them
+            if (data.caption && data.likeCount === 0) {
+                const likeMatch = data.caption.match(/(\d+)\s+likes?/i);
+                if (likeMatch) {
+                    data.likeCount = parseInt(likeMatch[1]);
+                    console.log('✅ Extracted likes from caption:', data.likeCount);
+                }
+                
+                const commentMatch = data.caption.match(/(\d+)\s+comments?/i);
+                if (commentMatch) {
+                    data.commentCount = parseInt(commentMatch[1]);
+                    console.log('✅ Extracted comments from caption:', data.commentCount);
+                }
+            }
+            
+            // Extract author username from caption or full name
+            if (!data.author.username) {
+                // Try from caption like "2 likes, 0 comments - husseinbuilds on"
+                const captionUsernameMatch = data.caption.match(/\s-\s+(\w+)\s+on/);
+                if (captionUsernameMatch) {
+                    data.author.username = captionUsernameMatch[1];
+                    console.log('✅ Extracted username from caption:', data.author.username);
+                } else if (data.author.fullName) {
+                    // Try to extract username from full name
+                    const usernameMatch = data.author.fullName.match(/^([^\s|]+)/);
+                    if (usernameMatch) {
+                        data.author.username = usernameMatch[1];
+                        console.log('✅ Extracted username from author:', data.author.username);
+                    }
                 }
             }
 
@@ -173,16 +242,21 @@ export async function scrapeInstagramReel(url, proxyConfig) {
 
             // Extract metrics from Instagram's internal data structure
             const allScripts = document.querySelectorAll('script');
+            console.log('📜 Total script tags found:', allScripts.length);
             let metricsFound = false;
+            let scriptsWithData = 0;
             
             for (const script of allScripts) {
                 const text = script.textContent;
                 if (text.includes('video_view_count') || text.includes('play_count')) {
+                    scriptsWithData++;
+                    console.log('🎯 Found script with metrics data');
                     try {
                         // Try to extract view count
                         const viewMatch = text.match(/"video_view_count":(\d+)/);
                         if (viewMatch) {
                             data.viewCount = parseInt(viewMatch[1]);
+                            console.log('✅ View count:', data.viewCount);
                             metricsFound = true;
                         }
                         
@@ -190,17 +264,26 @@ export async function scrapeInstagramReel(url, proxyConfig) {
                         const likeMatch = text.match(/"like_count":(\d+)/);
                         if (likeMatch) {
                             data.likeCount = parseInt(likeMatch[1]);
+                            console.log('✅ Like count:', data.likeCount);
                         }
                         
                         // Try to extract comment count
                         const commentMatch = text.match(/"comment_count":(\d+)/);
                         if (commentMatch) {
                             data.commentCount = parseInt(commentMatch[1]);
+                            console.log('✅ Comment count:', data.commentCount);
                         }
                         
                         if (metricsFound) break;
-                    } catch (e) {}
+                    } catch (e) {
+                        console.log('❌ Error parsing metrics:', e.message);
+                    }
                 }
+            }
+            
+            console.log('📊 Scripts with potential data:', scriptsWithData);
+            if (!metricsFound) {
+                console.log('⚠️ No metrics found in script tags, trying text patterns...');
             }
             
             // Fallback: Try text patterns if internal data not found
@@ -263,10 +346,21 @@ export async function scrapeInstagramReel(url, proxyConfig) {
             return data;
         });
 
-        console.log('✓ Successfully extracted reel data');
-        console.log(`Caption: ${reelData.caption.substring(0, 100)}...`);
-        console.log(`Video URL: ${reelData.videoUrl ? 'Found' : 'Not found'}`);
-        console.log(`Views: ${reelData.viewCount}, Likes: ${reelData.likeCount}, Comments: ${reelData.commentCount}`);
+        // Debug output
+        console.log('\n📊 EXTRACTION RESULTS:');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log(`📝 Caption: ${reelData.caption ? reelData.caption.substring(0, 100) + '...' : 'NOT FOUND'}`);
+        console.log(`🎬 Video URL: ${reelData.videoUrl ? 'FOUND ✅' : 'NOT FOUND ❌'}`);
+        console.log(`👁️  Views: ${reelData.viewCount || 'NOT FOUND'}`);
+        console.log(`❤️  Likes: ${reelData.likeCount || 'NOT FOUND'}`);
+        console.log(`💬 Comments: ${reelData.commentCount || 'NOT FOUND'}`);
+        console.log(`👤 Author: ${reelData.author?.username || 'NOT FOUND'}`);
+        console.log(`🏷️  Hashtags: ${reelData.hashtags?.length || 0} found`);
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+        
+        if (!reelData.caption && !reelData.videoUrl && reelData.viewCount === 0) {
+            console.log('⚠️ WARNING: NO DATA EXTRACTED - Likely login wall or blocked by Instagram');
+        }
 
         return reelData;
 

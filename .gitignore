@@ -13,3 +13,4 @@ dist/
 INPUT.json
 API_KEYS.txt
 *.txt
+debug-screenshot.png
