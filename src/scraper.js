@@ -1,5 +1,7 @@
 import { Actor } from 'apify';
 import { chromium } from 'playwright';
+import { addExtra } from 'playwright-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 
 /**
  * Scrape Instagram Reel data using Playwright
@@ -53,9 +55,14 @@ export async function scrapeInstagramReel(url, proxyConfig) {
             console.log('ℹ️  Running without proxy (local testing mode)');
         }
 
-        console.log('🚀 Launching browser in VISIBLE mode...');
-        console.log('👀 Watch the browser window to see what Instagram shows');
-        browser = await chromium.launch(launchOptions);
+        console.log('🚀 Launching browser with STEALTH mode...');
+        console.log('🥷 Using anti-detection measures');
+        
+        // Add stealth plugin to chromium
+        const chromiumWithStealth = addExtra(chromium);
+        chromiumWithStealth.use(StealthPlugin());
+        
+        browser = await chromiumWithStealth.launch(launchOptions);
         context = await browser.newContext(contextOptions);
         
         const page = await context.newPage();

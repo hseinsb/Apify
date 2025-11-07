@@ -1,7 +1,7 @@
 import { Actor } from 'apify';
 import { scrapeInstagramReel } from './scraper.js';
 import { transcribeAudio } from './transcription.js';
-import { downloadVideo, extractAudioFromVideo, validateUrl } from './utils.js';
+import { downloadVideo, extractAudioFromVideo, validateUrl, cleanInstagramUrl } from './utils.js';
 import { getReelDataViaAPI } from './instagram-api.js';
 import fs from 'fs';
 import path from 'path';
@@ -84,9 +84,15 @@ try {
                 continue;
             }
 
+            // Clean URL to remove tracking parameters
+            const cleanedUrl = cleanInstagramUrl(url);
+            if (cleanedUrl !== url) {
+                console.log(`🧹 Cleaned URL: ${url} → ${cleanedUrl}`);
+            }
+
             // Scrape reel metadata
             console.log('Extracting reel metadata...');
-            let reelData = await scrapeInstagramReel(url, proxyConfig);
+            let reelData = await scrapeInstagramReel(cleanedUrl, proxyConfig);
             
             // Fallback: If scraping failed, try Instagram oEmbed API
             if (!reelData || !reelData.videoUrl) {
