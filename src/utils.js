@@ -135,3 +135,21 @@ export function formatNumber(num) {
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
+/**
+ * Clean Instagram URL by removing tracking parameters
+ * @param {string} url - Instagram URL
+ * @returns {string} Cleaned URL
+ */
+export function cleanInstagramUrl(url) {
+    try {
+        const urlObj = new URL(url);
+        // Remove tracking parameters like ?igsh=
+        urlObj.search = '';
+        urlObj.hash = '';
+        return urlObj.toString();
+    } catch (e) {
+        console.log('⚠️ Error cleaning URL, using original:', e.message);
+        return url;
+    }
+}
+
