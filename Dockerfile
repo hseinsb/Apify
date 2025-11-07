@@ -1,5 +1,8 @@
 FROM apify/actor-node-playwright-chrome:20
 
+# Install ffmpeg for video/audio processing
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+
 COPY package*.json ./
 
 RUN npm --quiet set progress=false \
@@ -9,7 +12,9 @@ RUN npm --quiet set progress=false \
     && echo "Node.js version:" \
     && node --version \
     && echo "NPM version:" \
-    && npm --version
+    && npm --version \
+    && echo "FFmpeg version:" \
+    && ffmpeg -version
 
 COPY . ./
 
