@@ -3,6 +3,7 @@ import { scrapeInstagramReel } from './scraper.js';
 import { transcribeAudio } from './transcription.js';
 import { downloadVideo, extractAudioFromVideo, validateUrl, cleanInstagramUrl } from './utils.js';
 import { getReelDataViaAPI } from './instagram-api.js';
+import { getReelDataViaRapidAPIWithFallbacks } from './rapidapi.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -45,12 +46,20 @@ try {
     // Get API keys from environment variables
     const openaiApiKey = process.env.OPENAI_API_KEY;
     const assemblyaiApiKey = process.env.ASSEMBLYAI_API_KEY;
+    const rapidApiKey = process.env.RAPIDAPI_KEY || input.rapidApiKey; // Allow user to provide or use embedded
     
     // Validate API keys for transcription
     if (input.includeTranscript !== false) {
         if (!openaiApiKey && !assemblyaiApiKey) {
             throw new Error('Transcription API keys not configured. Please contact the actor owner.');
         }
+    }
+    
+    // Log which extraction method will be used
+    if (rapidApiKey) {
+        console.log('✅ RapidAPI key found - will use API-based extraction (recommended)');
+    } else {
+        console.log('⚠️ No RapidAPI key - will use browser scraping (may be limited)');
     }
     
     // Set proxy configuration (disabled for local testing, enabled on Apify)
@@ -90,21 +99,37 @@ try {
                 console.log(`🧹 Cleaned URL: ${url} → ${cleanedUrl}`);
             }
 
-            // Scrape reel metadata
-            console.log('Extracting reel metadata...');
-            let reelData = await scrapeInstagramReel(cleanedUrl, proxyConfig);
-            
-            // Fallback: If scraping failed, try Instagram oEmbed API
-            if (!reelData || !reelData.videoUrl) {
-                console.log('⚠️ Browser scraping failed (likely login wall), trying Instagram oEmbed API fallback...');
+            let reelData = null;
+
+            // PRIMARY METHOD: Try RapidAPI first (if API key available)
+            if (rapidApiKey) {
                 try {
-                    const apiData = await getReelDataViaAPI(url);
+                    console.log('🚀 Extracting via RapidAPI (Primary method)...');
+                    reelData = await getReelDataViaRapidAPIWithFallbacks(cleanedUrl, rapidApiKey);
+                    console.log('✅ RapidAPI extraction successful!');
+                } catch (rapidError) {
+                    console.log(`⚠️ RapidAPI failed: ${rapidError.message}`);
+                    console.log('📍 Falling back to browser scraping...');
+                }
+            }
+            
+            // FALLBACK 1: Browser scraping (if RapidAPI not available or failed)
+            if (!reelData || !reelData.videoUrl) {
+                console.log('🌐 Extracting via browser scraping...');
+                reelData = await scrapeInstagramReel(cleanedUrl, proxyConfig);
+            }
+            
+            // FALLBACK 2: Instagram oEmbed API (if browser scraping failed)
+            if (!reelData || !reelData.videoUrl) {
+                console.log('⚠️ Browser scraping failed, trying Instagram oEmbed API...');
+                try {
+                    const apiData = await getReelDataViaAPI(cleanedUrl);
                     if (apiData && (apiData.caption || apiData.videoUrl)) {
-                        console.log('✓ Successfully got data from Instagram API');
+                        console.log('✓ Successfully got data from Instagram oEmbed API');
                         reelData = apiData;
                     }
                 } catch (apiError) {
-                    console.log(`⚠️ API fallback also failed: ${apiError.message}`);
+                    console.log(`⚠️ oEmbed API also failed: ${apiError.message}`);
                 }
             }
 
