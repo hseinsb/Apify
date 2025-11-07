@@ -114,6 +114,59 @@ export async function scrapeInstagramReel(url, proxyConfig) {
         });
         await page.waitForTimeout(500 + Math.random() * 1000);
         
+        // Click "Continue on web" button if it appears (mobile Instagram)
+        console.log('🔍 Checking for "Continue on web" button...');
+        try {
+            const continueButtonSelectors = [
+                'text="Continue on web"',
+                'text="Continue as guest"',
+                'button:has-text("Continue")',
+                'a:has-text("Continue")',
+                '[role="button"]:has-text("Continue")',
+            ];
+            
+            for (const selector of continueButtonSelectors) {
+                try {
+                    const continueButton = await page.locator(selector).first();
+                    if (await continueButton.isVisible({ timeout: 2000 })) {
+                        console.log('✅ Found "Continue on web" button, clicking it...');
+                        await continueButton.click();
+                        console.log('✅ Clicked continue button!');
+                        console.log('⏳ Waiting for content to load after continue...');
+                        await page.waitForTimeout(8000); // Longer wait after continue
+                        
+                        // Check if we're still on a login/redirect page
+                        const currentUrl = page.url();
+                        console.log('📍 Current URL after continue:', currentUrl);
+                        if (currentUrl.includes('?l=') || currentUrl.includes('login')) {
+                            console.log('⚠️ Still on login flow page, looking for skip/close buttons...');
+                            
+                            // Try to skip any additional login prompts
+                            try {
+                                const skipSelectors = ['text="Not now"', 'text="Skip"', 'text="Maybe later"'];
+                                for (const skip of skipSelectors) {
+                                    try {
+                                        const skipBtn = await page.locator(skip).first();
+                                        if (await skipBtn.isVisible({ timeout: 1000 })) {
+                                            await skipBtn.click();
+                                            console.log('✅ Clicked skip button');
+                                            await page.waitForTimeout(2000);
+                                            break;
+                                        }
+                                    } catch {}
+                                }
+                            } catch {}
+                        }
+                        break;
+                    }
+                } catch (e) {
+                    // Try next selector
+                }
+            }
+        } catch (e) {
+            console.log('ℹ️  No "Continue on web" button found');
+        }
+        
         // Close the login popup if it appears
         console.log('🔍 Checking for login popup...');
         let popupClosed = false;
@@ -161,12 +214,31 @@ export async function scrapeInstagramReel(url, proxyConfig) {
         await page.waitForTimeout(5000);
         
         // Wait for video element to have a src attribute
-        console.log('🎥 Waiting for video to load...');
+        console.log('🎥 Waiting for video element...');
         try {
-            await page.waitForSelector('video[src]', { timeout: 10000 });
-            console.log('✅ Video element loaded with src!');
+            // Wait for video element to exist first
+            await page.waitForSelector('video', { timeout: 15000 });
+            console.log('✅ Video element found!');
+            
+            // Try to wait for src attribute (but don't fail if it doesn't load)
+            try {
+                await page.waitForSelector('video[src]:not([src=""]):not([src="about:blank"])', { timeout: 10000 });
+                console.log('✅ Video src attribute loaded!');
+            } catch (srcError) {
+                console.log('⚠️ Video src not loaded yet, trying alternative extraction methods...');
+                // Try to trigger video load by scrolling to it
+                await page.evaluate(() => {
+                    const video = document.querySelector('video');
+                    if (video) {
+                        video.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        // Try to play it (this sometimes triggers src loading)
+                        video.play().catch(() => {});
+                    }
+                });
+                await page.waitForTimeout(3000);
+            }
         } catch (e) {
-            console.log('⚠️ Video element did not load src in time');
+            console.log('⚠️ Video element not found on page');
         }
         
         console.log('🔍 Page loaded, attempting extraction...');
@@ -219,22 +291,38 @@ export async function scrapeInstagramReel(url, proxyConfig) {
                 timestamp: new Date().toISOString()
             };
 
-            // Extract video URL from video element or source elements
+            // Extract video URL - try multiple methods for mobile/desktop
             const videoElement = document.querySelector('video');
             console.log('🎥 Video element found:', !!videoElement);
             if (videoElement) {
-                if (videoElement.src) {
+                // Method 1: Direct src attribute
+                if (videoElement.src && videoElement.src !== 'about:blank') {
                     data.videoUrl = videoElement.src;
                     console.log('✅ Video URL from src:', data.videoUrl.substring(0, 50));
-                } else {
-                    // Try source elements
+                } 
+                // Method 2: Source elements
+                else {
                     const sourceElement = videoElement.querySelector('source');
                     if (sourceElement && sourceElement.src) {
                         data.videoUrl = sourceElement.src;
                         console.log('✅ Video URL from source:', data.videoUrl.substring(0, 50));
-                    } else {
-                        console.log('❌ No video src found');
                     }
+                }
+                
+                // Method 3: Look for video URL in data attributes (mobile)
+                if (!data.videoUrl) {
+                    const videoSrc = videoElement.getAttribute('data-src') || 
+                                   videoElement.getAttribute('data-video-url') ||
+                                   videoElement.dataset?.src;
+                    if (videoSrc) {
+                        data.videoUrl = videoSrc;
+                        console.log('✅ Video URL from data attribute:', data.videoUrl.substring(0, 50));
+                    }
+                }
+                
+                // Method 4: Check if video will load later (wait for it)
+                if (!data.videoUrl) {
+                    console.log('⏳ Video element exists but no src yet, it may load dynamically');
                 }
             } else {
                 console.log('❌ No video element found on page');
