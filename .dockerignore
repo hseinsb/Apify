@@ -1,0 +1,13 @@
+node_modules
+apify_storage
+storage
+.git
+.env
+*.log
+.DS_Store
+temp
+*.mp4
+*.mp3
+*.wav
+README.md
+

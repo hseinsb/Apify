@@ -1,0 +1,42 @@
+{
+  "actorSpecification": 1,
+  "name": "instagram-content-intelligence-pro",
+  "title": "Instagram Content Intelligence Pro",
+  "description": "Extract complete intelligence data from Instagram Reels including transcript, caption, hashtags, video URL, view count, likes, and comments. Supports bulk processing of multiple URLs.",
+  "version": "1.0.0",
+  "meta": {
+    "templateId": "instagram-reel-intelligence"
+  },
+  "input": "./input_schema.json",
+  "dockerfile": "./Dockerfile",
+  "readme": "../README.md",
+  "categories": ["SOCIAL_MEDIA"],
+  "storages": {
+    "dataset": {
+      "actorSpecification": 1,
+      "title": "Instagram Reels Intelligence Dataset",
+      "views": {
+        "overview": {
+          "title": "Overview",
+          "transformation": {
+            "fields": [
+              "url",
+              "caption",
+              "hashtags",
+              "transcript",
+              "viewCount",
+              "likeCount",
+              "commentCount",
+              "videoUrl"
+            ]
+          },
+          "display": {
+            "component": "table",
+            "properties": {}
+          }
+        }
+      }
+    }
+  }
+}
+

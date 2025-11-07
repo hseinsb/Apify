@@ -1,0 +1,14 @@
+# Git attributes for security
+
+# Ensure sensitive files are never committed even if .gitignore is bypassed
+API_KEYS.txt filter=secret
+*.txt filter=secret
+.env filter=secret
+INPUT.json filter=secret
+
+# Normalize line endings
+* text=auto
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+

@@ -1,0 +1,15 @@
+node_modules/
+apify_storage/
+storage/
+dist/
+.env
+*.log
+.DS_Store
+*.mp4
+*.mp3
+*.wav
+
+.env
+INPUT.json
+API_KEYS.txt
+*.txt

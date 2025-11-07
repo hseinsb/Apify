@@ -1,0 +1,25 @@
+{
+  "name": "instagram-content-intelligence-pro",
+  "version": "1.0.0",
+  "description": "Extract complete intelligence data from Instagram Reels including transcript, caption, hashtags, video URL, and engagement metrics",
+  "main": "src/main.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "author": "Apify",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "apify": "^3.1.10",
+    "playwright": "^1.40.0",
+    "openai": "^4.20.0",
+    "axios": "^1.6.2",
+    "form-data": "^4.0.0"
+  },
+  "repository": {},
+  "apify": {
+    "actorSpecification": 1
+  }
+}
+

@@ -1,0 +1,29 @@
+{
+  "title": "Instagram Content Intelligence Pro Input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "reelUrls": {
+      "title": "Instagram Reel URLs",
+      "type": "array",
+      "description": "List of Instagram Reel URLs to analyze. You can provide one or multiple URLs.",
+      "editor": "stringList",
+      "example": [
+        "https://www.instagram.com/reel/ABC123/",
+        "https://www.instagram.com/reel/DEF456/"
+      ],
+      "prefill": [
+        "https://www.instagram.com/reel/ABC123/"
+      ]
+    },
+    "includeTranscript": {
+      "title": "Include Transcript",
+      "type": "boolean",
+      "description": "Extract speech-to-text transcript from the video audio",
+      "default": true,
+      "editor": "checkbox"
+    }
+  },
+  "required": ["reelUrls"]
+}
+

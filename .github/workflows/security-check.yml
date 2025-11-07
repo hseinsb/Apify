@@ -1,0 +1,21 @@
+# Optional: GitHub Action to check for leaked secrets
+name: Security Check
+
+on: [push, pull_request]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Check for secrets
+        run: |
+          echo "Checking for potential secret leaks..."
+          if grep -r "sk-proj\|sk-[a-zA-Z0-9]" --exclude-dir=.git --exclude-dir=node_modules .; then
+            echo "⚠️ Potential API key found!"
+            exit 1
+          else
+            echo "✅ No secrets detected"
+          fi
+
