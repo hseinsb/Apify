@@ -1,7 +1,13 @@
 FROM apify/actor-node-playwright-chrome:20
 
+# Switch to root user to install ffmpeg
+USER root
+
 # Install ffmpeg for video/audio processing
 RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+
+# Switch back to default user
+USER myuser
 
 COPY package*.json ./
 
