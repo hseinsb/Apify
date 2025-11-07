@@ -213,6 +213,13 @@ export async function scrapeInstagramReel(url, proxyConfig) {
         console.log('⏳ Waiting additional time for content to load...');
         await page.waitForTimeout(5000);
         
+        // Scroll down to ensure video loads
+        console.log('📜 Scrolling to ensure video loads...');
+        await page.evaluate(() => {
+            window.scrollTo(0, document.body.scrollHeight / 2);
+        });
+        await page.waitForTimeout(2000);
+        
         // Wait for video element to have a src attribute
         console.log('🎥 Waiting for video element...');
         try {
@@ -278,8 +285,42 @@ export async function scrapeInstagramReel(url, proxyConfig) {
             console.log('Could not save screenshot');
         }
 
+        // Extract video URL from page scripts (Instagram embeds it in JS)
+        console.log('🔍 Looking for video URL in page scripts...');
+        const scriptVideoUrl = await page.evaluate(() => {
+            // Look for video URLs in all script tags
+            const scripts = Array.from(document.querySelectorAll('script'));
+            for (const script of scripts) {
+                const text = script.textContent || '';
+                
+                // Look for common video URL patterns
+                const videoPatterns = [
+                    /"video_url":"([^"]+)"/,
+                    /"src":"(https:\/\/[^"]*\.cdninstagram\.com[^"]*\.mp4[^"]*)"/,
+                    /video_url\\?":\\?"([^"\\]+)\\?"/,
+                    /"playback_url":"([^"]+)"/,
+                ];
+                
+                for (const pattern of videoPatterns) {
+                    const match = text.match(pattern);
+                    if (match && match[1]) {
+                        const url = match[1].replace(/\\u0026/g, '&').replace(/\\\//g, '/');
+                        console.log('✅ Found video URL in script:', url.substring(0, 80));
+                        return url;
+                    }
+                }
+            }
+            return null;
+        });
+        
+        if (scriptVideoUrl) {
+            console.log('✅ Extracted video URL from page scripts!');
+        } else {
+            console.log('⚠️ Could not find video URL in page scripts');
+        }
+        
         // Try to extract data from the page
-        const reelData = await page.evaluate(() => {
+        const reelData = await page.evaluate((scriptUrl) => {
             const data = {
                 caption: '',
                 hashtags: [],
@@ -326,6 +367,12 @@ export async function scrapeInstagramReel(url, proxyConfig) {
                 }
             } else {
                 console.log('❌ No video element found on page');
+            }
+            
+            // Method 5: Use the video URL found in scripts (passed as parameter)
+            if (!data.videoUrl && scriptUrl) {
+                data.videoUrl = scriptUrl;
+                console.log('✅ Using video URL from page scripts');
             }
 
             // Try multiple methods to get caption
@@ -539,7 +586,7 @@ export async function scrapeInstagramReel(url, proxyConfig) {
             }
 
             return data;
-        });
+        }, scriptVideoUrl);
 
         // Debug output
         console.log('\n📊 EXTRACTION RESULTS:');
