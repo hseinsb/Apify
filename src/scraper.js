@@ -22,11 +22,19 @@ export async function scrapeInstagramReel(url, proxyConfig) {
             slowMo: isLocal ? 500 : 0,  // Slow down locally for debugging
         };
 
-        // Configure proxy if provided
+        // Configure proxy if provided - USE MOBILE USER AGENT (less detected!)
         let contextOptions = {
-            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            viewport: { width: 1920, height: 1080 },
+            // Mobile iPhone user agent - Instagram mobile is less strict
+            userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+            viewport: { 
+                width: 390,  // iPhone 14 Pro width
+                height: 844  // iPhone 14 Pro height
+            },
             locale: 'en-US',
+            timezoneId: 'America/New_York',
+            isMobile: true,
+            hasTouch: true,
+            deviceScaleFactor: 3,
         };
 
         // Handle Apify proxy configuration
@@ -55,12 +63,17 @@ export async function scrapeInstagramReel(url, proxyConfig) {
             console.log('ℹ️  Running without proxy (local testing mode)');
         }
 
-        console.log('🚀 Launching browser with STEALTH mode...');
-        console.log('🥷 Using anti-detection measures');
+        console.log('🚀 Launching browser with MAXIMUM STEALTH mode...');
+        console.log('🥷 Using aggressive anti-detection measures');
+        console.log('📱 Simulating mobile device');
         
-        // Add stealth plugin to chromium
+        // Add stealth plugin to chromium with maximum evasion
         const chromiumWithStealth = addExtra(chromium);
-        chromiumWithStealth.use(StealthPlugin());
+        const stealthPlugin = StealthPlugin();
+        
+        // Enable all stealth features
+        stealthPlugin.enabledEvasions.delete('user-agent-override'); // We'll set our own mobile UA
+        chromiumWithStealth.use(stealthPlugin);
         
         browser = await chromiumWithStealth.launch(launchOptions);
         context = await browser.newContext(contextOptions);
@@ -76,14 +89,30 @@ export async function scrapeInstagramReel(url, proxyConfig) {
         console.log(`\n🌐 Navigating to: ${url}`);
         console.log('👀 WATCH THE BROWSER WINDOW - You\'ll see exactly what happens!\n');
         
+        // Add realistic human-like behavior
+        console.log('🤖→👤 Simulating human behavior...');
+        
+        // Random delay before navigation (humans don't navigate instantly)
+        await page.waitForTimeout(Math.random() * 2000 + 1000);
+        
         // Navigate to the reel URL
         await page.goto(url, { 
             waitUntil: 'domcontentloaded',
-            timeout: 60000 
+            timeout: 90000  // Increased timeout
         });
 
-        console.log('⏳ Waiting for page to fully render (15 seconds)...');
-        await page.waitForTimeout(15000);
+        console.log('⏳ Waiting for page to fully render...');
+        // Random wait time (humans have variable load times)
+        const waitTime = Math.random() * 5000 + 10000; // 10-15 seconds
+        console.log(`⏱️  Waiting ${Math.round(waitTime/1000)} seconds...`);
+        await page.waitForTimeout(waitTime);
+        
+        // Simulate human scrolling
+        console.log('📜 Simulating human scroll behavior...');
+        await page.evaluate(() => {
+            window.scrollBy(0, 100 + Math.random() * 200);
+        });
+        await page.waitForTimeout(500 + Math.random() * 1000);
         
         // Close the login popup if it appears
         console.log('🔍 Checking for login popup...');
