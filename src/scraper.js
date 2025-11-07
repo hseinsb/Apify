@@ -61,8 +61,15 @@ export async function scrapeInstagramReel(url, proxyConfig) {
             timeout: 60000 
         });
 
-        // Wait a bit for dynamic content to load
-        await page.waitForTimeout(3000);
+        // Wait for content to load
+        await page.waitForTimeout(5000);
+        
+        // Take screenshot for debugging
+        console.log('Page loaded, attempting extraction...');
+        
+        // Get page content for debugging
+        const content = await page.content();
+        console.log('Page title:', await page.title());
 
         // Try to extract data from the page
         const reelData = await page.evaluate(() => {
@@ -77,23 +84,55 @@ export async function scrapeInstagramReel(url, proxyConfig) {
                 timestamp: new Date().toISOString()
             };
 
-            // Extract video URL from video element
+            // Extract video URL from video element or source elements
             const videoElement = document.querySelector('video');
-            if (videoElement && videoElement.src) {
-                data.videoUrl = videoElement.src;
+            if (videoElement) {
+                if (videoElement.src) {
+                    data.videoUrl = videoElement.src;
+                } else {
+                    // Try source elements
+                    const sourceElement = videoElement.querySelector('source');
+                    if (sourceElement && sourceElement.src) {
+                        data.videoUrl = sourceElement.src;
+                    }
+                }
             }
 
-            // Try to get caption from meta tags or visible text
+            // Try multiple methods to get caption
+            // Method 1: Meta tags
             const captionMeta = document.querySelector('meta[property="og:description"]');
-            if (captionMeta) {
+            if (captionMeta && captionMeta.content) {
                 data.caption = captionMeta.content;
-            } else {
-                // Try to find caption in the page content
-                const captionElements = document.querySelectorAll('h1, span[class*="caption"], div[class*="caption"]');
-                for (const element of captionElements) {
-                    if (element.textContent && element.textContent.length > 10) {
-                        data.caption = element.textContent.trim();
-                        break;
+            }
+            
+            // Method 2: Try structured data
+            if (!data.caption) {
+                const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+                for (const script of scripts) {
+                    try {
+                        const json = JSON.parse(script.textContent);
+                        if (json.description) {
+                            data.caption = json.description;
+                            break;
+                        }
+                    } catch (e) {}
+                }
+            }
+            
+            // Method 3: Look for Instagram's internal data
+            if (!data.caption) {
+                const allScripts = document.querySelectorAll('script');
+                for (const script of allScripts) {
+                    const text = script.textContent;
+                    if (text.includes('caption')) {
+                        try {
+                            // Try to extract caption from Instagram's data
+                            const matches = text.match(/"caption":"([^"]+)"/);
+                            if (matches && matches[1]) {
+                                data.caption = matches[1];
+                                break;
+                            }
+                        } catch (e) {}
                     }
                 }
             }
@@ -106,74 +145,118 @@ export async function scrapeInstagramReel(url, proxyConfig) {
                 }
             }
 
-            // Try to extract author information
+            // Try to extract author information from multiple sources
+            let authorFound = false;
+            
+            // Method 1: OG tags
             const authorMeta = document.querySelector('meta[property="og:title"]');
-            if (authorMeta) {
+            if (authorMeta && authorMeta.content) {
                 const titleContent = authorMeta.content;
                 const usernameMatch = titleContent.match(/@(\w+)/);
                 if (usernameMatch) {
                     data.author.username = usernameMatch[1];
+                    authorFound = true;
                 }
-                // Try to extract full name
                 const nameMatch = titleContent.match(/^([^@]+)/);
                 if (nameMatch) {
                     data.author.fullName = nameMatch[1].trim();
                 }
             }
-
-            // Try to extract engagement metrics from visible elements
-            // Instagram's structure changes frequently, so we try multiple selectors
-            const textContent = document.body ? document.body.innerText : '';
             
-            // Look for view count patterns
-            const viewPatterns = [
-                /(\d+(?:,\d+)*(?:\.\d+)?)\s*(?:M|K|B)?\s*views?/i,
-                /(\d+(?:,\d+)*)\s*views?/i
-            ];
-            
-            for (const pattern of viewPatterns) {
-                const match = textContent.match(pattern);
-                if (match) {
-                    let views = match[1].replace(/,/g, '');
-                    if (match[0].includes('M')) views = parseFloat(views) * 1000000;
-                    else if (match[0].includes('K')) views = parseFloat(views) * 1000;
-                    else if (match[0].includes('B')) views = parseFloat(views) * 1000000000;
-                    data.viewCount = Math.floor(parseFloat(views));
-                    break;
+            // Method 2: Try to find from URL or page structure
+            if (!authorFound) {
+                const urlMatch = window.location.pathname.match(/\/([^\/]+)\/reel/);
+                if (urlMatch) {
+                    data.author.username = urlMatch[1];
                 }
             }
 
-            // Look for like count
-            const likePatterns = [
-                /(\d+(?:,\d+)*(?:\.\d+)?)\s*(?:M|K|B)?\s*likes?/i,
-            ];
+            // Extract metrics from Instagram's internal data structure
+            const allScripts = document.querySelectorAll('script');
+            let metricsFound = false;
             
-            for (const pattern of likePatterns) {
-                const match = textContent.match(pattern);
-                if (match) {
-                    let likes = match[1].replace(/,/g, '');
-                    if (match[0].includes('M')) likes = parseFloat(likes) * 1000000;
-                    else if (match[0].includes('K')) likes = parseFloat(likes) * 1000;
-                    else if (match[0].includes('B')) likes = parseFloat(likes) * 1000000000;
-                    data.likeCount = Math.floor(parseFloat(likes));
-                    break;
+            for (const script of allScripts) {
+                const text = script.textContent;
+                if (text.includes('video_view_count') || text.includes('play_count')) {
+                    try {
+                        // Try to extract view count
+                        const viewMatch = text.match(/"video_view_count":(\d+)/);
+                        if (viewMatch) {
+                            data.viewCount = parseInt(viewMatch[1]);
+                            metricsFound = true;
+                        }
+                        
+                        // Try to extract like count
+                        const likeMatch = text.match(/"like_count":(\d+)/);
+                        if (likeMatch) {
+                            data.likeCount = parseInt(likeMatch[1]);
+                        }
+                        
+                        // Try to extract comment count
+                        const commentMatch = text.match(/"comment_count":(\d+)/);
+                        if (commentMatch) {
+                            data.commentCount = parseInt(commentMatch[1]);
+                        }
+                        
+                        if (metricsFound) break;
+                    } catch (e) {}
                 }
             }
-
-            // Look for comment count
-            const commentPatterns = [
-                /(\d+(?:,\d+)*(?:\.\d+)?)\s*(?:M|K|B)?\s*comments?/i,
-            ];
             
-            for (const pattern of commentPatterns) {
-                const match = textContent.match(pattern);
-                if (match) {
-                    let comments = match[1].replace(/,/g, '');
-                    if (match[0].includes('M')) comments = parseFloat(comments) * 1000000;
-                    else if (match[0].includes('K')) comments = parseFloat(comments) * 1000;
-                    else if (match[0].includes('B')) comments = parseFloat(comments) * 1000000000;
-                    data.commentCount = Math.floor(parseFloat(comments));
-                    break;
+            // Fallback: Try text patterns if internal data not found
+            if (!metricsFound) {
+                const textContent = document.body ? document.body.innerText : '';
+                
+                // Look for view count patterns
+                const viewPatterns = [
+                    /(\d+(?:,\d+)*(?:\.\d+)?)\s*(?:M|K|B)?\s*views?/i,
+                    /(\d+(?:,\d+)*)\s*views?/i
+                ];
+                
+                for (const pattern of viewPatterns) {
+                    const match = textContent.match(pattern);
+                    if (match) {
+                        let views = match[1].replace(/,/g, '');
+                        if (match[0].includes('M')) views = parseFloat(views) * 1000000;
+                        else if (match[0].includes('K')) views = parseFloat(views) * 1000;
+                        else if (match[0].includes('B')) views = parseFloat(views) * 1000000000;
+                        data.viewCount = Math.floor(parseFloat(views));
+                        break;
+                    }
+                }
+
+                // Look for like count
+                const likePatterns = [
+                    /(\d+(?:,\d+)*(?:\.\d+)?)\s*(?:M|K|B)?\s*likes?/i,
+                ];
+                
+                for (const pattern of likePatterns) {
+                    const match = textContent.match(pattern);
+                    if (match) {
+                        let likes = match[1].replace(/,/g, '');
+                        if (match[0].includes('M')) likes = parseFloat(likes) * 1000000;
+                        else if (match[0].includes('K')) likes = parseFloat(likes) * 1000;
+                        else if (match[0].includes('B')) likes = parseFloat(likes) * 1000000000;
+                        data.likeCount = Math.floor(parseFloat(likes));
+                        break;
+                    }
+                }
+
+                // Look for comment count
+                const commentPatterns = [
+                    /(\d+(?:,\d+)*(?:\.\d+)?)\s*(?:M|K|B)?\s*comments?/i,
+                ];
+                
+                for (const pattern of commentPatterns) {
+                    const match = textContent.match(pattern);
+                    if (match) {
+                        let comments = match[1].replace(/,/g, '');
+                        if (match[0].includes('M')) comments = parseFloat(comments) * 1000000;
+                        else if (match[0].includes('K')) comments = parseFloat(comments) * 1000;
+                        else if (match[0].includes('B')) comments = parseFloat(comments) * 1000000000;
+                        data.commentCount = Math.floor(parseFloat(comments));
+                        break;
+                    }
                 }
             }
 
