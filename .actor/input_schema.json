@@ -4,13 +4,13 @@
   "schemaVersion": 1,
   "properties": {
     "reelUrls": {
-      "title": "Instagram Reel URLs",
+      "title": "Instagram Post/Reel URLs",
       "type": "array",
-      "description": "List of Instagram Reel URLs to extract. Paste one or multiple Instagram Reel URLs.",
+      "description": "List of Instagram Post or Reel URLs to extract. Paste one or multiple URLs (supports both /p/ posts and /reel/ reels).",
       "editor": "stringList",
       "example": [
         "https://www.instagram.com/reel/ABC123/",
-        "https://www.instagram.com/reel/DEF456/"
+        "https://www.instagram.com/p/DEF456/"
       ],
       "prefill": [
         "https://www.instagram.com/reel/ABC123/"

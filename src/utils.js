@@ -8,18 +8,18 @@ import { exec } from 'child_process';
 const execPromise = promisify(exec);
 
 /**
- * Validate if a URL is a valid Instagram Reel URL
+ * Validate if a URL is a valid Instagram Post or Reel URL
  * @param {string} url - URL to validate
- * @returns {boolean} True if valid Instagram Reel URL
+ * @returns {boolean} True if valid Instagram Post or Reel URL
  */
 export function validateUrl(url) {
     if (!url || typeof url !== 'string') {
         return false;
     }
     
-    // Check if it's an Instagram reel URL
-    const instagramReelPattern = /^https?:\/\/(www\.)?instagram\.com\/(reel|reels)\/[A-Za-z0-9_-]+\/?/;
-    return instagramReelPattern.test(url);
+    // Check if it's an Instagram post or reel URL
+    const instagramPattern = /^https?:\/\/(www\.)?instagram\.com\/(p|reel|reels)\/[A-Za-z0-9_-]+\/?/;
+    return instagramPattern.test(url);
 }
 
 /**

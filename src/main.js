@@ -82,16 +82,16 @@ try {
         console.log(`\n[${i + 1}/${input.reelUrls.length}] Processing: ${url}`);
 
         try {
-            // Validate URL
-            if (!validateUrl(url)) {
-                console.log(`⚠️ Invalid Instagram Reel URL: ${url}`);
-                await Actor.pushData({
-                    url,
-                    error: 'Invalid Instagram Reel URL',
-                    success: false
-                });
-                continue;
-            }
+                // Validate URL
+                if (!validateUrl(url)) {
+                    console.log(`⚠️ Invalid Instagram URL: ${url}`);
+                    await Actor.pushData({
+                        url,
+                        error: 'Invalid Instagram Post/Reel URL. Must be in format: instagram.com/p/ID or instagram.com/reel/ID',
+                        success: false
+                    });
+                    continue;
+                }
 
             // Clean URL to remove tracking parameters
             const cleanedUrl = cleanInstagramUrl(url);

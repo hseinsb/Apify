@@ -1,6 +1,6 @@
 # 🎬 Instagram Content Intelligence Pro
 
-Extract complete intelligence data from Instagram Reels - including video transcript, captions, hashtags, engagement metrics, and direct video URLs.
+Extract complete intelligence data from Instagram Posts and Reels - including video transcript, captions, hashtags, engagement metrics, and direct video URLs.
 
 ## ✨ Features
 
@@ -15,13 +15,13 @@ Extract complete intelligence data from Instagram Reels - including video transc
 
 ### Input
 
-Simply provide Instagram Reel URLs:
+Simply provide Instagram Post or Reel URLs:
 
 ```json
 {
   "reelUrls": [
     "https://www.instagram.com/reel/ABC123/",
-    "https://www.instagram.com/reel/DEF456/"
+    "https://www.instagram.com/p/DEF456/"
   ],
   "includeTranscript": true
 }
@@ -31,8 +31,8 @@ Simply provide Instagram Reel URLs:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `reelUrls` | Array | **Yes** | List of Instagram Reel URLs to extract |
-| `includeTranscript` | Boolean | No | Extract audio transcript (default: `true`) |
+| `reelUrls` | Array | **Yes** | List of Instagram Post/Reel URLs to extract (supports both formats) |
+| `includeTranscript` | Boolean | No | Extract audio transcript from videos (default: `true`) |
 
 ### Output
 
@@ -59,16 +59,16 @@ Get structured JSON data for each reel:
 
 ## 💡 Use Cases
 
-- **Content Analysis**: Analyze competitor content and trends
-- **Market Research**: Extract insights from influencer reels
+- **Content Analysis**: Analyze competitor posts, reels, and trends
+- **Market Research**: Extract insights from influencer content
 - **Content Repurposing**: Get transcripts for blog posts, articles, or captions
-- **Data Collection**: Build datasets of Instagram content
+- **Data Collection**: Build datasets of Instagram posts and reels
 - **SEO & Discovery**: Make video content searchable by text
 - **Accessibility**: Generate captions and transcripts automatically
 
 ## 📊 What You Get
 
-For each Instagram Reel, you'll extract:
+For each Instagram Post or Reel, you'll extract:
 
 ✅ **Text Content**
 - Full caption text
@@ -146,16 +146,19 @@ No need to manage API keys or external services - everything is handled for you!
 A: No! The actor works without any Instagram login.
 
 **Q: Can I extract from private accounts?**  
-A: No, only publicly available reels can be extracted.
+A: No, only publicly available posts and reels can be extracted.
+
+**Q: Does it work with both posts and reels?**  
+A: Yes! Works with both `/p/` (posts) and `/reel/` (reels) URLs.
 
 **Q: How accurate is the transcription?**  
 A: Very accurate! We use OpenAI Whisper, the industry-leading speech-to-text AI.
 
-**Q: What if a reel has no audio?**  
-A: The transcript will be empty, but all other data will be extracted.
+**Q: What if a post/reel has no audio?**  
+A: The transcript will be empty, but all other data (caption, likes, etc.) will be extracted.
 
-**Q: Can I process old reels?**  
-A: Yes! Any publicly available reel URL will work, regardless of age.
+**Q: Can I process old posts?**  
+A: Yes! Any publicly available Instagram URL will work, regardless of age.
 
 ## 📧 Support
 
