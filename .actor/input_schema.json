@@ -16,10 +16,17 @@
         "https://www.instagram.com/reel/ABC123/"
       ]
     },
+    "rapidApiKey": {
+      "title": "RapidAPI Key (Optional - Highly Recommended)",
+      "type": "string",
+      "description": "Your RapidAPI key for reliable Instagram extraction. Get one free at rapidapi.com. Without this, video URL may not be available.",
+      "editor": "textfield",
+      "isSecret": true
+    },
     "includeTranscript": {
       "title": "Include Transcript",
       "type": "boolean",
-      "description": "Extract speech-to-text transcript from the video audio",
+      "description": "Extract speech-to-text transcript from the video audio (requires video URL)",
       "default": true,
       "editor": "checkbox"
     }
