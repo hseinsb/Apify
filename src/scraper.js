@@ -75,11 +75,51 @@ export async function scrapeInstagramReel(url, proxyConfig) {
             timeout: 60000 
         });
 
-        console.log('⏳ Waiting 10 seconds for page to fully load...');
-        console.log('👀 Watch what Instagram shows in the browser');
+        console.log('⏳ Waiting 5 seconds for page to load...');
+        await page.waitForTimeout(5000);
         
-        // Wait for content to load (longer so you can see)
-        await page.waitForTimeout(10000);
+        // Close the login popup if it appears
+        console.log('🔍 Checking for login popup...');
+        try {
+            // Try multiple selectors for the close button
+            const closeButtonSelectors = [
+                'svg[aria-label="Close"]',
+                'button[aria-label="Close"]',
+                '[role="button"]:has-text("Not now")',
+                'button:has-text("Not Now")',
+                'div[role="button"]:has-text("Not now")',
+                'svg[aria-label="Close"] parent::div[role="button"]',
+            ];
+            
+            for (const selector of closeButtonSelectors) {
+                try {
+                    const closeButton = await page.locator(selector).first();
+                    if (await closeButton.isVisible({ timeout: 2000 })) {
+                        console.log('✅ Found login popup close button, clicking it...');
+                        await closeButton.click();
+                        console.log('✅ Closed login popup!');
+                        await page.waitForTimeout(2000); // Wait for popup to close
+                        break;
+                    }
+                } catch (e) {
+                    // Try next selector
+                }
+            }
+        } catch (e) {
+            console.log('ℹ️  No login popup found (or already closed)');
+        }
+        
+        console.log('⏳ Waiting for content to fully load...');
+        await page.waitForTimeout(3000);
+        
+        // Wait for video element to have a src attribute
+        console.log('🎥 Waiting for video to load...');
+        try {
+            await page.waitForSelector('video[src]', { timeout: 10000 });
+            console.log('✅ Video element loaded with src!');
+        } catch (e) {
+            console.log('⚠️ Video element did not load src in time');
+        }
         
         console.log('🔍 Page loaded, attempting extraction...');
         console.log('📄 Page title:', await page.title());
