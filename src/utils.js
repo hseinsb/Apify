@@ -17,8 +17,8 @@ export function validateUrl(url) {
         return false;
     }
     
-    // Check if it's an Instagram post or reel URL
-    const instagramPattern = /^https?:\/\/(www\.)?instagram\.com\/(p|reel|reels)\/[A-Za-z0-9_-]+\/?/;
+    // Check if it's an Instagram post or reel URL (allow query params and trailing content)
+    const instagramPattern = /^https?:\/\/(www\.)?instagram\.com\/(p|reel|reels)\/[A-Za-z0-9_-]+/;
     return instagramPattern.test(url);
 }
 
