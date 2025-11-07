@@ -71,46 +71,58 @@ export async function scrapeInstagramReel(url, proxyConfig) {
         
         // Navigate to the reel URL
         await page.goto(url, { 
-            waitUntil: 'networkidle',
+            waitUntil: 'domcontentloaded',
             timeout: 60000 
         });
 
-        console.log('⏳ Waiting 5 seconds for page to load...');
-        await page.waitForTimeout(5000);
+        console.log('⏳ Waiting for page to fully render (15 seconds)...');
+        await page.waitForTimeout(15000);
         
         // Close the login popup if it appears
         console.log('🔍 Checking for login popup...');
+        let popupClosed = false;
         try {
-            // Try multiple selectors for the close button
-            const closeButtonSelectors = [
-                'svg[aria-label="Close"]',
+            // Look for close button in the popup - try multiple approaches
+            const closeSelectors = [
                 'button[aria-label="Close"]',
-                '[role="button"]:has-text("Not now")',
-                'button:has-text("Not Now")',
-                'div[role="button"]:has-text("Not now")',
-                'svg[aria-label="Close"] parent::div[role="button"]',
+                'svg[aria-label="Close"]',
+                'div[role="dialog"] button',
+                'div[role="dialog"] svg',
             ];
             
-            for (const selector of closeButtonSelectors) {
+            for (const selector of closeSelectors) {
                 try {
-                    const closeButton = await page.locator(selector).first();
-                    if (await closeButton.isVisible({ timeout: 2000 })) {
-                        console.log('✅ Found login popup close button, clicking it...');
-                        await closeButton.click();
-                        console.log('✅ Closed login popup!');
-                        await page.waitForTimeout(2000); // Wait for popup to close
-                        break;
+                    const elements = await page.$$(selector);
+                    if (elements.length > 0) {
+                        console.log(`✅ Found ${elements.length} potential close button(s) with selector: ${selector}`);
+                        // Click the first visible one
+                        for (const element of elements) {
+                            const isVisible = await element.isVisible();
+                            if (isVisible) {
+                                console.log('🖱️  Clicking close button...');
+                                await element.click();
+                                popupClosed = true;
+                                console.log('✅ Closed login popup!');
+                                await page.waitForTimeout(3000);
+                                break;
+                            }
+                        }
+                        if (popupClosed) break;
                     }
                 } catch (e) {
-                    // Try next selector
+                    console.log(`⚠️ Selector ${selector} failed:`, e.message);
                 }
             }
+            
+            if (!popupClosed) {
+                console.log('ℹ️  No visible login popup found');
+            }
         } catch (e) {
-            console.log('ℹ️  No login popup found (or already closed)');
+            console.log('⚠️ Error checking for popup:', e.message);
         }
         
-        console.log('⏳ Waiting for content to fully load...');
-        await page.waitForTimeout(3000);
+        console.log('⏳ Waiting additional time for content to load...');
+        await page.waitForTimeout(5000);
         
         // Wait for video element to have a src attribute
         console.log('🎥 Waiting for video to load...');
@@ -122,14 +134,24 @@ export async function scrapeInstagramReel(url, proxyConfig) {
         }
         
         console.log('🔍 Page loaded, attempting extraction...');
-        console.log('📄 Page title:', await page.title());
-        console.log('🌐 Current URL:', page.url());
+        const pageTitle = await page.title();
+        const pageUrl = page.url();
+        console.log('📄 Page title:', pageTitle);
+        console.log('🌐 Current URL:', pageUrl);
         
         // Check if we hit a login wall
         const pageContent = await page.content();
+        const contentLength = pageContent.length;
+        console.log(`📄 Page content length: ${contentLength} characters`);
         console.log('\n📄 PAGE CONTENT SAMPLE (first 500 chars):');
         console.log(pageContent.substring(0, 500));
         console.log('...\n');
+        
+        // Check if page is actually loaded
+        if (contentLength < 1000) {
+            console.log('🚫 ERROR: Page content is suspiciously short - Instagram may be blocking!');
+            console.log('Full page content:', pageContent);
+        }
         
         if (pageContent.includes('loginForm') || pageContent.includes('Log in to Instagram') || pageContent.includes('Login • Instagram')) {
             console.log('🚫 LOGIN WALL DETECTED - Instagram is requiring authentication');
