@@ -6,7 +6,7 @@
     "reelUrls": {
       "title": "Instagram Reel URLs",
       "type": "array",
-      "description": "List of Instagram Reel URLs to analyze. You can provide one or multiple URLs.",
+      "description": "List of Instagram Reel URLs to extract. Paste one or multiple Instagram Reel URLs.",
       "editor": "stringList",
       "example": [
         "https://www.instagram.com/reel/ABC123/",
@@ -16,17 +16,10 @@
         "https://www.instagram.com/reel/ABC123/"
       ]
     },
-    "rapidApiKey": {
-      "title": "RapidAPI Key (Optional - Highly Recommended)",
-      "type": "string",
-      "description": "Your RapidAPI key for reliable Instagram extraction. Get one free at rapidapi.com. Without this, video URL may not be available.",
-      "editor": "textfield",
-      "isSecret": true
-    },
     "includeTranscript": {
-      "title": "Include Transcript",
+      "title": "Include Audio Transcript",
       "type": "boolean",
-      "description": "Extract speech-to-text transcript from the video audio (requires video URL)",
+      "description": "Extract speech-to-text transcript from the video (powered by OpenAI Whisper)",
       "default": true,
       "editor": "checkbox"
     }

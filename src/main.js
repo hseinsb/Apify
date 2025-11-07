@@ -43,10 +43,10 @@ try {
         throw new Error('Invalid input: reelUrls must be a non-empty array');
     }
 
-    // Get API keys from environment variables
-    const openaiApiKey = process.env.OPENAI_API_KEY;
-    const assemblyaiApiKey = process.env.ASSEMBLYAI_API_KEY;
-    const rapidApiKey = process.env.RAPIDAPI_KEY || input.rapidApiKey; // Allow user to provide or use embedded
+        // Get API keys from environment variables (managed by actor owner)
+        const openaiApiKey = process.env.OPENAI_API_KEY;
+        const assemblyaiApiKey = process.env.ASSEMBLYAI_API_KEY;
+        const rapidApiKey = process.env.RAPIDAPI_KEY; // Embedded by actor owner
     
     // Validate API keys for transcription
     if (input.includeTranscript !== false) {
