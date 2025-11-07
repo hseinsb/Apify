@@ -88,10 +88,18 @@ try {
             console.log('Extracting reel metadata...');
             let reelData = await scrapeInstagramReel(url, proxyConfig);
             
-            // Fallback: If scraping failed and we're running locally, try API method
-            if (!reelData || (!reelData.caption && !reelData.videoUrl && !process.env.APIFY_TOKEN)) {
-                console.log('⚠️ Browser scraping failed, trying Instagram API fallback...');
-                reelData = await getReelDataViaAPI(url);
+            // Fallback: If scraping failed, try Instagram oEmbed API
+            if (!reelData || !reelData.videoUrl) {
+                console.log('⚠️ Browser scraping failed (likely login wall), trying Instagram oEmbed API fallback...');
+                try {
+                    const apiData = await getReelDataViaAPI(url);
+                    if (apiData && (apiData.caption || apiData.videoUrl)) {
+                        console.log('✓ Successfully got data from Instagram API');
+                        reelData = apiData;
+                    }
+                } catch (apiError) {
+                    console.log(`⚠️ API fallback also failed: ${apiError.message}`);
+                }
             }
 
             if (!reelData) {

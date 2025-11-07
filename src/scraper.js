@@ -87,8 +87,17 @@ export async function scrapeInstagramReel(url, proxyConfig) {
         
         // Check if we hit a login wall
         const pageContent = await page.content();
-        if (pageContent.includes('loginForm') || pageContent.includes('Log in to Instagram')) {
-            console.log('⚠️ LOGIN WALL DETECTED - Instagram is blocking access');
+        console.log('\n📄 PAGE CONTENT SAMPLE (first 500 chars):');
+        console.log(pageContent.substring(0, 500));
+        console.log('...\n');
+        
+        if (pageContent.includes('loginForm') || pageContent.includes('Log in to Instagram') || pageContent.includes('Login • Instagram')) {
+            console.log('🚫 LOGIN WALL DETECTED - Instagram is requiring authentication');
+        }
+        
+        // Check for blocked/not available messages
+        if (pageContent.includes('not available') || pageContent.includes('isn\'t available')) {
+            console.log('🚫 CONTENT BLOCKED - Instagram says content isn\'t available');
         }
         
         // Save screenshot for debugging
