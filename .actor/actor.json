@@ -11,6 +11,11 @@
   "dockerfile": "./Dockerfile",
   "readme": "../README.md",
   "categories": ["SOCIAL_MEDIA"],
+  "defaultRunOptions": {
+    "build": "latest",
+    "memoryMbytes": 2048,
+    "timeoutSecs": 3600
+  },
   "storages": {
     "dataset": {
       "actorSpecification": 1,

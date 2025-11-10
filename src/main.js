@@ -1,5 +1,6 @@
 import { Actor } from 'apify';
-import { scrapeInstagramReel } from './scraper.js';
+// LAZY LOAD: Don't import scraper (Playwright) unless needed - saves 500MB+ memory!
+// import { scrapeInstagramReel } from './scraper.js';
 import { transcribeAudio } from './transcription.js';
 import { downloadVideo, extractAudioFromVideo, validateUrl, cleanInstagramUrl, cleanupFile, cleanupTempDirectory } from './utils.js';
 import { getReelDataViaAPI } from './instagram-api.js';
@@ -120,6 +121,9 @@ try {
             // FALLBACK 1: Browser scraping (if RapidAPI not available or failed)
             if (!reelData || !reelData.videoUrl) {
                 console.log('🌐 Extracting via browser scraping...');
+                // LAZY LOAD: Only import Playwright when actually needed
+                console.log('⚠️ Lazy loading browser scraper (this will increase memory temporarily)...');
+                const { scrapeInstagramReel } = await import('./scraper.js');
                 reelData = await scrapeInstagramReel(cleanedUrl, proxyConfig);
             }
             
