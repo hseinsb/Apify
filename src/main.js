@@ -1,7 +1,7 @@
 import { Actor } from 'apify';
 import { scrapeInstagramReel } from './scraper.js';
 import { transcribeAudio } from './transcription.js';
-import { downloadVideo, extractAudioFromVideo, validateUrl, cleanInstagramUrl } from './utils.js';
+import { downloadVideo, extractAudioFromVideo, validateUrl, cleanInstagramUrl, cleanupFile, cleanupTempDirectory } from './utils.js';
 import { getReelDataViaAPI } from './instagram-api.js';
 import { getReelDataViaRapidAPIWithFallbacks } from './rapidapi.js';
 import fs from 'fs';
@@ -14,6 +14,10 @@ const __dirname = path.dirname(__filename);
 console.log('🔧 Script loaded, initializing Actor...');
 await Actor.init();
 console.log('✅ Actor initialized');
+
+// Clean up any leftover temp files from previous runs
+cleanupTempDirectory();
+console.log('🧹 Cleaned up temporary directory');
 
 try {
     console.log('📍 Entering try block...');
@@ -158,13 +162,14 @@ try {
                 };
 
             // Handle transcription if requested
+            let audioPath = null;
             if (input.includeTranscript !== false && reelData.videoUrl) {
                 try {
                     console.log('Downloading video for transcription...');
                     const videoPath = await downloadVideo(reelData.videoUrl, `reel_${i}`);
                     
                     console.log('Extracting audio from video...');
-                    const audioPath = await extractAudioFromVideo(videoPath);
+                    audioPath = await extractAudioFromVideo(videoPath);
                     
                     console.log('Transcribing audio...');
                     // Use OpenAI if available, otherwise AssemblyAI
@@ -180,10 +185,20 @@ try {
                     
                     output.transcript = transcript || 'No speech detected';
                     console.log('✓ Transcription completed');
+                    
+                    // IMMEDIATELY clean up audio file to free memory
+                    cleanupFile(audioPath);
+                    audioPath = null;
                 } catch (transcriptionError) {
                     console.log(`⚠️ Transcription failed: ${transcriptionError.message}`);
                     output.transcript = '';
                     output.transcriptionError = transcriptionError.message;
+                    
+                    // Clean up audio file even if transcription failed
+                    if (audioPath) {
+                        cleanupFile(audioPath);
+                        audioPath = null;
+                    }
                 }
             } else {
                 output.transcript = '';
@@ -196,6 +211,12 @@ try {
             console.log('\n🎉 FINAL OUTPUT:');
             console.log(JSON.stringify(output, null, 2));
             console.log(`\n✓ Successfully processed reel ${i + 1}/${input.reelUrls.length}`);
+            
+            // Force garbage collection to free memory (if available)
+            if (global.gc) {
+                global.gc();
+                console.log('🧹 Forced garbage collection');
+            }
 
         } catch (error) {
             console.log(`❌ Error processing reel ${url}: ${error.message}`);
@@ -205,6 +226,10 @@ try {
                 success: false
             });
         }
+        
+        // Log memory usage after each reel
+        const memUsage = process.memoryUsage();
+        console.log(`\n💾 Memory Usage: ${Math.round(memUsage.heapUsed / 1024 / 1024)}MB / ${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`);
     }
 
     console.log('\n✓ All reels processed successfully');

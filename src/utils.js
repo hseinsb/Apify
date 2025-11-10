@@ -127,6 +127,27 @@ export function cleanupFile(filePath) {
 }
 
 /**
+ * Clean up entire temporary directory
+ */
+export function cleanupTempDirectory() {
+    try {
+        const tempDir = path.join(process.cwd(), 'temp');
+        if (fs.existsSync(tempDir)) {
+            const files = fs.readdirSync(tempDir);
+            for (const file of files) {
+                try {
+                    fs.unlinkSync(path.join(tempDir, file));
+                } catch (e) {
+                    console.warn(`Could not delete ${file}: ${e.message}`);
+                }
+            }
+        }
+    } catch (error) {
+        console.warn(`Could not clean temp directory: ${error.message}`);
+    }
+}
+
+/**
  * Format number with commas
  * @param {number} num - Number to format
  * @returns {string} Formatted number
